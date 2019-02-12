@@ -51,16 +51,16 @@ def get_analog_process_config():
     """ Calls the read_analog_process_config API client function to retrieve the min/max values of the sensor voltage and corresponding PSI.
     These values are used to calculate the PSI from the voltage output. 
     Exceptions are returned if the read_analog_process_config function returns an error or if the returned value is cannot be parsed."""
-    status, response, value = analog.read_analog_process_config()
+    response, value = analog.read_analog_process_config('ai1')
     
-    if status != return_values.OK or response != return_values.RESULT_SUCCESS:
-        raise Exception("Failed to retrieve the analog process config information. Received status {} and return value {}.".format(status,response))
+    if response != return_values.RESULT_SUCCESS:
+        raise Exception("Failed to retrieve the analog process config information. Return value {}.".format(response))
         
     try:
-        max_volts = float(value["AI1"]["max_voltage"]) 
-        min_volts = float(value["AI1"]["min_voltage"]) 
-        min_sen = float(value["AI1"]["min_sensor"])    
-        max_sen = float(value["AI1"]["max_sensor"])
+        max_volts = float(value["max_voltage"]) 
+        min_volts = float(value["min_voltage"]) 
+        min_sen = float(value["min_sensor"])    
+        max_sen = float(value["max_sensor"])
     except KeyError:
          raise Exception("The analog process config message received from the api server is not in the expected format. Unable to proceed.")
      
@@ -68,16 +68,15 @@ def get_analog_process_config():
     
 def read_lwm2m_info():
     """ Uses the get_lwm2m_security_info API function to get the endpoint URI, the secret key and the secret key used to connect to the lwm2m server."""
-    status, response, secure = lwm2m.get_lwm2m_security_info()
+    response, secure = lwm2m.get_lwm2m_security_info()
     
-    if status != return_values.OK or response != return_values.RESULT_SUCCESS:
-        raise Exception("Failed to retrieve the lwm2m connection information. Received status {} and return value {}.".format(status,response))
-    
+    if response != return_values.RESULT_SUCCESS:
+        raise Exception("Failed to retrieve the lwm2m connection information. Return value {}.".format(response))
     try:
-        lwm2m_uri = "coaps://" + secure["LWM2M_HOST_NAME"].encode("utf-8") + ":5684"
-        lwm2m_endpoint = secure["LWM2M_ENDPOINT"].encode("utf-8")
-        lwm2m_identity = secure["LWM2M_IDENTITY"].encode("utf-8")
-        lwm2m_security = secure["LWM2M_SECRET_KEY"].encode("utf-8")
+        lwm2m_uri = "coaps://" + secure["LWM2M_HOST_NAME"] + ":5684"
+        lwm2m_endpoint = secure["LWM2M_ENDPOINT"]
+        lwm2m_identity = secure["LWM2M_IDENTITY"]
+        lwm2m_security = secure["LWM2M_SECRET_KEY"]
     except KeyError:
         raise Exception("The lwm2m security info message received from the api server is not in the expected format. Unable to proceed.")
     
@@ -233,15 +232,15 @@ class SecurityInstance(Lwm2m.Instance):
     def __init__(self, instance_id):
         # The init function for the Lwm2m.Instance base class must always be called.
         Lwm2m.Instance.__init__(self, instance_id)
-        
         uri, _, public_key, secret_key = read_lwm2m_info()
         resources = [
             ReadWriteResource(self.URI, STRING, uri),
             ReadWriteResource(self.BOOSTRAP, BOOL, False),
             ReadWriteResource(self.SECURITY_MODE, INT, self.LWM2M_SECURITY_MODE_PRE_SHARED_KEY),
-            ReadWriteResource(self.PUBLIC_KEY, OPAQUE, bytearray(public_key, 'utf8')),
+            ReadWriteResource(self.PUBLIC_KEY, OPAQUE, bytearray(public_key)),  # , 'utf8')),
             ReadWriteResource(self.SERVER_PUBLIC_KEY, OPAQUE, bytearray()),
-            ReadWriteResource(self.SECRET_KEY, OPAQUE, bytearray(binascii.a2b_hex(secret_key))) ,
+            # ReadWriteResource(self.SECRET_KEY, OPAQUE, bytearray(binascii.a2b_hex(secret_key))) ,
+            ReadWriteResource(self.SECRET_KEY, OPAQUE, secret_key) ,
             ReadWriteResource(self.SMS_SECURITY_MOE, INT, 0),
             ReadWriteResource(self.SMS_KEY_PARAM, OPAQUE, bytearray()),
             ReadWriteResource(self.SMS_SECRET_KEY, OPAQUE, bytearray()),
